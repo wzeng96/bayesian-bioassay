@@ -8,3 +8,10 @@ The Preparation folder shows a sample analysis and prediction of zika virus inhi
   - XXX Chemical Descriptors
  
 The Project folder shows the actual project that we work on.
+
+
+### PyMC Notebook
+
+ * Load the conda environment or install the following dependencies:
+     * pymc, numpy, scipy, pandas, scikit-learn, graphviz (module load graphviz on biowulf)
+    
