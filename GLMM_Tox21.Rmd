@@ -1,0 +1,124 @@
+---
+title: "glmm test"
+author: "Wenyu"
+date: '2022-06-09'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## GLMM 
+
+```{r}
+library(lme4)
+library(caret)
+library(dplyr)
+library(tidyverse)
+glmm_data <- read.csv("glmm_data.csv", header = TRUE)
+
+glmm_data <- glmm_data[, 2:53]
+```
+
+```{r}
+two_assay <- glmm_data %>% filter(assay_name %in% c('tox21-ar-bla-antagonist-p1', '	
+tox21-ahr-p1'))
+two_assay$outcome <- as.factor(two_assay$outcome)
+print(two_assay$outcome)
+glmm_data$outcome <- as.factor(glmm_data$outcome)
+# results_full<-glmer(outcome~. +(1+.|assay_name),data=glmm_data,family=binomial)
+```
+
+```{r}
+scale_data = glmm_data[, !names(glmm_data) %in% c("outcome", "assay_name")]
+scale_data <- scale(scale_data)
+
+#results_full<-glmer(outcome~. +(1+.|assay_name),data=glmm_data,family=binomial)
+```
+
+```{r}
+scale_data <- as.data.frame(scale_data)
+scale_data$outcome = glmm_data$outcome
+scale_data$assay_name = glmm_data$assay_name
+```
+
+```{r}
+results_full<-glmer(outcome~Chi0+BCUT2D_CHGHI+Chi2v+(1+Chi0+BCUT2D_CHGHI+Chi2v|assay_name),data=scale_data,family=binomial)
+```
+
+```{r}
+summary(results_full)
+```
+
+```{r}
+# load("dragons.RData")
+# head(dragons)
+```
+```{r}
+ranef(results_full)
+```
+
+```{r}
+table(glmm_data$outcome)
+```
+```{r}
+# random intercept model
+results_full<-glmer(outcome~1+.+(1|assay_name),data=scale_data,family=binomial)
+```
+
+```{r}
+summary(results_full)
+```
+
+### Remove features with high collinearity
+```{r}
+df = glmm_data %>% filter(assay_name %in% c('tox21-ar-bla-antagonist-p1')) %>% select(-assay_name,-outcome)
+cor(df)
+```
+
+```{r}
+library(performance)
+library(corrplot)
+#check_collinearity(results_full)
+corrplot(cor(df), order='hclust')
+```
+```{r}
+df2 = scale_data %>% filter(assay_name %in% c('tox21-ar-bla-antagonist-p1')) %>% select(-assay_name,-outcome)
+cor(df2)
+corrplot(cor(df2), order='hclust')
+```
+```{r}
+df2 = cor(df)
+hc = findCorrelation(df2, cutoff=0.6) 
+hc = sort(hc)
+reduced_Data = df[,-c(hc)]
+print (reduced_Data)
+```
+```{r}
+corrplot(cor(reduced_Data), order='hclust')
+cor(reduced_Data)
+```
+```{r}
+reduce_col <- list(colnames(reduced_Data))
+scale_data2 <- scale_data[,-c(hc)]
+names(scale_data2)
+# scaleReducedData$outcome <- scale_data$outcome
+# scaleReducedData$assay_name <- scale_data$assay_name
+results_scaled<-glmer(outcome~. +(1+.|assay_name),data=scale_data2,family=binomial)
+```
+```{r}
+scale_data2 <- scale_data[,-c(hc)]
+names(scale_data2)
+# scaleReducedData$outcome <- scale_data$outcome
+# scaleReducedData$assay_name <- scale_data$assay_name
+results_scaled<-glmer(outcome~. +(1+.|assay_name),data=scale_data2,family=binomial)
+```
+
+```{r}
+summary(results_scaled)
+```
+```{r}
+ranef(results_scaled)
+```
+
