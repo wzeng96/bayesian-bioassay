@@ -8,8 +8,8 @@ import pymc as pm
 import pandas as pd
 import numpy as np
 import arviz as az
-import aesara as ae
-import aesara.tensor as T
+#import aesara as ae
+#import aesara.tensor as T
 import pytensor.tensor as pt
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
@@ -23,6 +23,7 @@ import pickle
 # add the prediction components back in
 
 def main() -> int:
+    print("starting main")
     # ### Stack 50 assays together along with assay meta info
     mp.set_start_method('forkserver', force=True)
 
@@ -39,6 +40,8 @@ def main() -> int:
     for i in range(len(xls2.sheet_names)):
         df1 = xls2.parse(i)
         df.append(df1)
+
+    print("read in main data")
 
     t = pd.DataFrame({'Cell_Line': ['DT40','DT40', 'DT40'], 'ProtocolName':['tox21-dt40-p1_100', 'tox21-dt40-p1_653', 'tox21-dt40-p1_657']})
 
@@ -66,6 +69,8 @@ def main() -> int:
 
     df_stack_50 = pd.concat(df_list)
     df_stack_50 = df_stack_50.join(assay_info.set_index('ProtocolName'), on='ProtocolName')
+    
+    print("completed pre-processing")
     # ### Train/Test Split & Bayesian model coordination
 
     df_stack_50.Outcome = df_stack_50.Outcome.astype(object)
@@ -88,11 +93,10 @@ def main() -> int:
     col_name.insert(205,'SMILES')
     chem_des_scale.columns = col_name
 
-    df_try = chem_des_scale.iloc[:100, :]
     factorized_protocols = pd.factorize(chem_des_scale.ProtocolName)
 
-    X = chem_des_scale.iloc[:, :204]
-    X = chem_des_scale.iloc[:, :20]
+    #X = chem_des_scale.iloc[:, :204]
+    X = chem_des_scale.iloc[:,:100]
     y = chem_des_scale['Outcome']
     assay_info_try = chem_des_scale.iloc[:,206:]
 
@@ -162,15 +166,15 @@ def main() -> int:
         
 
     print('Done model setup')
-    #print('Running model')
+    print('Running model')
 
     # Run the model
-    #with assay_level_model:
-    #    tr_assay = pm.sample(500, tune=500,cores=4,chains=4,init="adapt_diag")
+    with assay_level_model:
+        tr_assay = pm.sample(draws=500, tune=500,cores=4,chains=4,init="auto")
 
-    #filename = 'results/tr_assay_full_model.pkl'
-    #pickle.dump(tr_assay, open(filename, 'wb'))
-    #print('model saved')
+    filename = 'results/tr_assay_full_model.pkl'
+    pickle.dump(tr_assay, open(filename, 'wb'))
+    print('model saved')
     return 0
 
 
