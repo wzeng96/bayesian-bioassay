@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import sys
+import logging
 import multiprocessing as mp
 
 import pymc as pm
@@ -21,9 +22,10 @@ import pickle
 # convert the sections below into readable functions
 # increase the tune and draw values in the model
 # add the prediction components back in
-
 def main() -> int:
-    print("starting main")
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    n_features=int(sys.argv[1])
+    logging.info(f"starting main with {n_features} features")
     # ### Stack 50 assays together along with assay meta info
     mp.set_start_method('forkserver', force=True)
 
@@ -41,7 +43,7 @@ def main() -> int:
         df1 = xls2.parse(i)
         df.append(df1)
 
-    print("read in main data")
+    logging.info("read in main data")
 
     t = pd.DataFrame({'Cell_Line': ['DT40','DT40', 'DT40'], 'ProtocolName':['tox21-dt40-p1_100', 'tox21-dt40-p1_653', 'tox21-dt40-p1_657']})
 
@@ -70,7 +72,7 @@ def main() -> int:
     df_stack_50 = pd.concat(df_list)
     df_stack_50 = df_stack_50.join(assay_info.set_index('ProtocolName'), on='ProtocolName')
     
-    print("completed pre-processing")
+    logging.info("completed pre-processing")
     # ### Train/Test Split & Bayesian model coordination
 
     df_stack_50.Outcome = df_stack_50.Outcome.astype(object)
@@ -96,7 +98,7 @@ def main() -> int:
     factorized_protocols = pd.factorize(chem_des_scale.ProtocolName)
 
     #X = chem_des_scale.iloc[:, :204]
-    X = chem_des_scale.iloc[:,:100]
+    X = chem_des_scale.iloc[:,:n_features]
     y = chem_des_scale['Outcome']
     assay_info_try = chem_des_scale.iloc[:,206:]
 
@@ -125,7 +127,7 @@ def main() -> int:
 
     lambdas = pd.read_csv('Tox21/log_reg_w_lambda_sig.csv')['0'].tolist()
 
-    print('start model setup')
+    logging.info('start model setup')
     with pm.Model(coords=coords_simulated) as assay_level_model:
         x = pm.Data('x', X4_bayes, mutable = True)
         protocol_idx = pm.Data("protocol_idx", list(factorized_protocols[0]), mutable=True)
@@ -147,8 +149,8 @@ def main() -> int:
             gbeta = pm.Normal("g_beta_{0}".format(i), mu=0.0, sigma=10.0, shape=6)
 
             mu_gbeta = gbeta[0] + gbeta[1] * organism_idx + gbeta[2] * tissue_2_idx + gbeta[3] * tissue_4_idx + gbeta[4] * gender_idx + gbeta[5] * cell_type_idx
-            #sigma_beta = pm.Exponential('sigma_beta_{0}'.format(i),1.0) ## pass the saved lambda from the logistic regression
-            sigma_beta = np.sqrt(lambdas)
+            sigma_beta = pm.Exponential('sigma_beta_{0}'.format(i),1.0) ## pass the saved lambda from the logistic regression
+            #sigma_beta = np.sqrt(lambdas)
             betas = pm.Normal('beta_{0}'.format(i), mu=mu_gbeta,sigma=sigma_beta,dims="protocol")
             beta_list.append(betas)
 
@@ -165,16 +167,17 @@ def main() -> int:
         likelihood = pm.Bernoulli('likelihood', p, observed=Y4_bayes[0], shape = p.shape)
         
 
-    print('Done model setup')
-    print('Running model')
+    logging.info('Done model setup')
+    logging.info('Running model')
 
     # Run the model
     with assay_level_model:
-        tr_assay = pm.sample(draws=500, tune=500,cores=4,chains=4,init="auto")
+        tr_assay = pm.sample(draws=50, tune=50,cores=4,chains=4,init="adapt_diag")
 
-    filename = 'results/tr_assay_full_model.pkl'
+
+    filename = f"results/tr_assay_full_model_{n_features}.pkl"
     pickle.dump(tr_assay, open(filename, 'wb'))
-    print('model saved')
+    logging.info('model saved')
     return 0
 
 
