@@ -2,7 +2,6 @@
 # coding: utf-8
 
 import sys
-import logging
 import multiprocessing as mp
 
 import pymc as pm
@@ -22,10 +21,9 @@ import pickle
 # convert the sections below into readable functions
 # increase the tune and draw values in the model
 # add the prediction components back in
+
 def main() -> int:
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-    n_features=int(sys.argv[1])
-    logging.info(f"starting main with {n_features} features")
+    print("starting main")
     # ### Stack 50 assays together along with assay meta info
     mp.set_start_method('forkserver', force=True)
 
@@ -43,7 +41,7 @@ def main() -> int:
         df1 = xls2.parse(i)
         df.append(df1)
 
-    logging.info("read in main data")
+    print("read in main data")
 
     t = pd.DataFrame({'Cell_Line': ['DT40','DT40', 'DT40'], 'ProtocolName':['tox21-dt40-p1_100', 'tox21-dt40-p1_653', 'tox21-dt40-p1_657']})
 
@@ -60,25 +58,19 @@ def main() -> int:
     assay_info['Cell_Line'] = assay_info['Cell_Line'].str.replace(r'*', '', regex=True).str.replace(' ', '')
     assay_info['Cell_Type'] = assay_info['Cell_Type'].str.replace(r'*', '', regex=True)
     assay_info = assay_info.join(assay_info_tox21.set_index('Cell_Line'), on='Cell_Line')
-   
-    select_assays = ['tox21-shh-3t3-gli3-agonist-p1', 'tox21-shh-3t3-gli3-antagonist-p1', 'tox21-rar-antagonist-p2', 'tox21-dt40-p1_657', 'tox21-vdr-bla-agonist-p1','tox21-vdr-bla-antagonist-p1','tox21-hdac-p1', 'tox21-p53-bla-p1']
 
     df_list = []
     for i in range(len(df)):
         one_assay = df[i]
         one_assay = one_assay.drop(one_assay.columns[0], axis=1).drop_duplicates()
-        if one_assay.columns[0] in select_assays:
-            one_assay['ProtocolName'] = one_assay.columns[0]
-            print(one_assay.columns[0])
-            one_assay = one_assay.rename(columns = {one_assay.columns[0]: 'Outcome'})
-            df_list.append(one_assay)
+        one_assay['ProtocolName'] = one_assay.columns[0]
+        one_assay = one_assay.rename(columns = {one_assay.columns[0]: 'Outcome'})
+        df_list.append(one_assay)
 
     df_stack_50 = pd.concat(df_list)
     df_stack_50 = df_stack_50.join(assay_info.set_index('ProtocolName'), on='ProtocolName')
     
-    logging.info(f"Data shape is {df_stack_50.shape}")
-
-    logging.info("completed pre-processing")
+    print("completed pre-processing")
     # ### Train/Test Split & Bayesian model coordination
 
     df_stack_50.Outcome = df_stack_50.Outcome.astype(object)
@@ -103,8 +95,7 @@ def main() -> int:
 
     factorized_protocols = pd.factorize(chem_des_scale.ProtocolName)
 
-    #X = chem_des_scale.iloc[:, :204]
-    X = chem_des_scale.iloc[:,:n_features]
+    X = chem_des_scale.iloc[:, :204]
     y = chem_des_scale['Outcome']
     assay_info_try = chem_des_scale.iloc[:,206:]
 
@@ -131,17 +122,17 @@ def main() -> int:
     gender = pd.factorize(assay_info_train.drop_duplicates().Gender)
     cell_type = pd.factorize(assay_info_train.drop_duplicates().Cell_Type)
 
-    #lambdas = pd.read_csv('Tox21/log_reg_w_lambda_sig.csv')['0'].tolist()
+    lambdas = pd.read_csv('Tox21/log_reg_w_lambda_sig.csv')['0'].tolist()
 
-    logging.info('start model setup')
+    print('start model setup')
     with pm.Model(coords=coords_simulated) as assay_level_model:
         x = pm.Data('x', X4_bayes, mutable = True)
         protocol_idx = pm.Data("protocol_idx", list(factorized_protocols[0]), mutable=True)
         organism_idx = pm.Data("organism_idx", organisms[0], mutable=True)
-        #tissue_2_idx = pm.Data("tissue_2_idx", tissues_2[0], mutable=True)
-        #tissue_4_idx = pm.Data("tissue_4_idx", tissues_4[0], mutable=True)
+        tissue_2_idx = pm.Data("tissue_2_idx", tissues_2[0], mutable=True)
+        tissue_4_idx = pm.Data("tissue_4_idx", tissues_4[0], mutable=True)
         gender_idx = pm.Data("gender_idx", gender[0], mutable=True)
-        #cell_type_idx = pm.Data("cell_type_idx", cell_type[0], mutable=True)
+        cell_type_idx = pm.Data("cell_type_idx", cell_type[0], mutable=True)
 
         # prior stddev in intercepts & slopes (variation across protocol):
         sd_dist = pm.Exponential.dist(1.0)
@@ -152,11 +143,11 @@ def main() -> int:
         #hyperpriors and priors for average betas:
         beta_list = []
         for i in range(X4_bayes.shape[1]):
-            gbeta = pm.Normal("g_beta_{0}".format(i), mu=0.0, sigma=10.0, shape=3)
+            gbeta = pm.Normal("g_beta_{0}".format(i), mu=0.0, sigma=10.0, shape=6)
 
-            mu_gbeta = gbeta[0] + gbeta[1] * organism_idx + gbeta[2] * gender_idx
-            sigma_beta = pm.Exponential('sigma_beta_{0}'.format(i),10) ## pass the saved lambda from the logistic regression
-            #sigma_beta = np.sqrt(lambdas)
+            mu_gbeta = gbeta[0] + gbeta[1] * organism_idx + gbeta[2] * tissue_2_idx + gbeta[3] * tissue_4_idx + gbeta[4] * gender_idx + gbeta[5] * cell_type_idx
+            #sigma_beta = pm.Exponential('sigma_beta_{0}'.format(i),1.0) ## pass the saved lambda from the logistic regression
+            sigma_beta = np.sqrt(lambdas)
             betas = pm.Normal('beta_{0}'.format(i), mu=mu_gbeta,sigma=sigma_beta,dims="protocol")
             beta_list.append(betas)
 
@@ -173,17 +164,16 @@ def main() -> int:
         likelihood = pm.Bernoulli('likelihood', p, observed=Y4_bayes[0], shape = p.shape)
         
 
-    logging.info('Done model setup')
-    logging.info('Running model')
+    print('Done model setup')
+    print('Running model')
 
     # Run the model
     with assay_level_model:
-        tr_assay = pm.sample(draws=1000, tune=1000,cores=8,chains=8,init="adapt_diag")
+        tr_assay = pm.sample(draws=500, tune=500,cores=4,chains=4,init="advi")
 
-
-    filename = f"results/tr_8_assay_model_noextra.pkl"
+    filename = 'results/tr_assay_full_model.pkl'
     pickle.dump(tr_assay, open(filename, 'wb'))
-    logging.info('model saved')
+    print('model saved')
     return 0
 
 
