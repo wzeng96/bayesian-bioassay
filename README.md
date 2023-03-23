@@ -1,14 +1,10 @@
 Hi Everyone, 
 
-This project aims to predict the activity outcome (active/inactive) of given assays using Bayesian Modeling and Probabilistic Programming in PyMC3.
+This project aims to predict chemical toxicity in the Tox21 assay data using Hierarchical Bayesian model, and compare results with Logistic Regressiona Naive Bayesian model. This is the first project that uses in vitro assays to predict chemical toxicity and we also include assay level biological information in addition to chemical descriptors to make predictions.
 
-The Preparation folder shows a sample analysis and prediction of zika virus inhibitor assay that we choose from PubChem. 
-  - AID: 1347156
-  - 288 total Chemical Structures
-  - XXX Chemical Descriptors
- 
-The Project folder shows the actual project that we work on.
+The code and results for Logistic Regression and Naive Bayesian are located in the notebooks folder.
 
+To run the Hierarchical Bayesian model, one needs to first load the conda environment, then run the python script in `data_preprocessing` folder to prepare data for modeling. The steps to run this model in GPU/faster way are under the "numpyro_GPU" folder. 
 
 ### PyMC Notebook
 
