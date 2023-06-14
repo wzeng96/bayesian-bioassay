@@ -10,4 +10,4 @@
 #SBATCH --output=R-0612.%j.out
 #SBATCH --error=R-0612.%j.err
 
-python Tox21/PyMC_model_0612.py
+python Tox21/PyMC_model_train.py
