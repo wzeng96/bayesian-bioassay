@@ -9,6 +9,7 @@ now you are in the pymc enviornment and are able to run the files
 
 #### Split data into Training_and_Testing
 `nano Tox21/train_test_data.py` to look at the train_test python script.
+
 `sbatch data.sh` submit job to biowulf
 - output: R-data.out, R-data.err (These two are used to see whether the python script runs successfully)
 - `cat R-data.out` to look at the content inside the file
