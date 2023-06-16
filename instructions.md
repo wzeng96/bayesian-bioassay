@@ -4,7 +4,7 @@ This is an instruction on how to run the hierarchical bayesian model on Biowulf.
 Each step will have a shell script to submit job on Biowulf, a python script, output file, error file, and results that will be needed later on.
 #### Connect to conda enviornment
 - `source myconda`
-- `mamba activate pymc`
+- `mamba activate pymc_env`
 
 now you are in the pymc enviornment and are able to run the files
 
