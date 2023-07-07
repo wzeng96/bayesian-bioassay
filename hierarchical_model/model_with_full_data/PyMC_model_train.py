@@ -26,12 +26,12 @@ def main() -> int:
     mp.set_start_method('forkserver', force=True)
 
 
-    X_train = pd.read_csv('X_train.csv')
-    X_test = pd.read_csv('X_test.csv')
-    y_train = pd.read_csv('y_train.csv')
-    y_test = pd.read_csv('y_test.csv')
-    assay_info_train = pd.read_csv('assay_info_train.csv')
-    assay_info_test = pd.read_csv('assay_info_test.csv')
+    X_train = pd.read_csv('Tox21/X_train_rescale.csv')
+
+    y_train = pd.read_csv('Tox21/y_train.csv')
+
+    assay_info_train = pd.read_csv('Tox21/assay_info_train_rescale.csv')
+
     X4_bayes = X_train
     X_train_v, X_validation, y_train_v, y_validation, assay_info_train_v, assay_info_validation = train_test_split(X_train, y_train, assay_info_train, test_size = 0.2, random_state=42)
 
@@ -73,7 +73,8 @@ def main() -> int:
         tissue_4_idx = pm.Data("tissue_4_idx", tissues_4[0], mutable=True)
         gender_idx = pm.Data("gender_idx", gender[0], mutable=True)
         cell_type_idx = pm.Data("cell_type_idx", cell_type[0], mutable=True)
-
+        y = pm.Data("y", Y4_bayes, mutable=True)
+        
         # prior stddev in intercepts & slopes (variation across protocol):
         sd_dist = pm.Exponential.dist(1.0)
         
